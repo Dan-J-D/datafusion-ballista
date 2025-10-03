@@ -29,6 +29,7 @@ use ballista_core::serde::scheduler::{ExecutorSpecification, PartitionId};
 use ballista_core::serde::BallistaCodec;
 use datafusion::execution::context::TaskContext;
 use datafusion::physical_plan::ExecutionPlan;
+use datafusion::prelude::SessionContext;
 use datafusion_proto::logical_plan::AsLogicalPlan;
 use datafusion_proto::physical_plan::AsExecutionPlan;
 use futures::FutureExt;
@@ -248,10 +249,21 @@ async fn run_received_task<T: 'static + AsLogicalPlan, U: 'static + AsExecutionP
         runtime.clone(),
     ));
 
+    let ctx = SessionContext::new();
+    for udf in &executor.function_registry.scalar_functions {
+        ctx.register_udf((**udf.1).clone());
+    }
+    for udaf in &executor.function_registry.aggregate_functions {
+        ctx.register_udaf((**udaf.1).clone());
+    }
+    for udwf in &executor.function_registry.window_functions {
+        ctx.register_udwf((**udwf.1).clone());
+    }
+
     let plan: Arc<dyn ExecutionPlan> =
         U::try_decode(task.plan.as_slice()).and_then(|proto| {
             proto.try_into_physical_plan(
-                task_context.deref(),
+                &ctx,
                 runtime.deref(),
                 codec.physical_extension_codec(),
             )

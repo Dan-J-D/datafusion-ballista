@@ -29,15 +29,22 @@ repository = "https://github.com/apache/datafusion-ballista"
 readme = "README.md"
 
 [dependencies]
-ballista = { path = "../ballista/client", version = "49.0.0", features = ["standalone"] }
+ballista = { path = "../ballista/client", version = "49.0.0", features = [
+    "standalone",
+] }
 clap = { workspace = true, features = ["derive", "cargo"] }
 datafusion = { workspace = true }
 datafusion-cli = { workspace = true }
 dirs = "6.0"
 env_logger = { workspace = true }
 mimalloc = { workspace = true }
-rustyline = "16.0.0"
-tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "sync", "parking_lot"] }
+rustyline = "17.0.1"
+tokio = { workspace = true, features = [
+    "macros",
+    "rt",
+    "rt-multi-thread",
+    "sync",
+    "parking_lot",
+] }
 
 [features]
-

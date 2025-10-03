@@ -23,7 +23,7 @@ use datafusion::physical_plan::metrics::{
     Count, Gauge, MetricValue, MetricsSet, Time, Timestamp,
 };
 use datafusion::physical_plan::{ExecutionPlan, Metric};
-use datafusion::prelude::SessionConfig;
+use datafusion::prelude::{SessionConfig, SessionContext};
 use datafusion_proto::logical_plan::AsLogicalPlan;
 use datafusion_proto::physical_plan::AsExecutionPlan;
 use std::collections::HashMap;
@@ -294,6 +294,17 @@ pub fn get_task_definition<T: 'static + AsLogicalPlan, U: 'static + AsExecutionP
 ) -> Result<TaskDefinition, BallistaError> {
     let session_config = session_config.update_from_key_value_pair(&task.props);
 
+    let ctx = SessionContext::new_with_config(session_config.clone());
+    for udf in &scalar_functions {
+        ctx.register_udf((**udf.1).clone());
+    }
+    for udaf in &aggregate_functions {
+        ctx.register_udaf((**udaf.1).clone());
+    }
+    for uwf in &window_functions {
+        ctx.register_udwf((**uwf.1).clone());
+    }
+
     let mut task_scalar_functions = HashMap::new();
     let mut task_aggregate_functions = HashMap::new();
     let mut task_window_functions = HashMap::new();
@@ -316,7 +327,7 @@ pub fn get_task_definition<T: 'static + AsLogicalPlan, U: 'static + AsExecutionP
     let encoded_plan = task.plan.as_slice();
     let plan: Arc<dyn ExecutionPlan> = U::try_decode(encoded_plan).and_then(|proto| {
         proto.try_into_physical_plan(
-            function_registry.as_ref(),
+            &ctx,
             runtime.as_ref(),
             codec.physical_extension_codec(),
         )
@@ -360,6 +371,17 @@ pub fn get_task_definition_vec<
 ) -> Result<Vec<TaskDefinition>, BallistaError> {
     let session_config = session_config.update_from_key_value_pair(&multi_task.props);
 
+    let ctx = SessionContext::new_with_config(session_config.clone());
+    for udf in &scalar_functions {
+        ctx.register_udf((**udf.1).clone());
+    }
+    for udaf in &aggregate_functions {
+        ctx.register_udaf((**udaf.1).clone());
+    }
+    for uwf in &window_functions {
+        ctx.register_udwf((**uwf.1).clone());
+    }
+
     let mut task_scalar_functions = HashMap::new();
     let mut task_aggregate_functions = HashMap::new();
     let mut task_window_functions = HashMap::new();
@@ -384,7 +406,7 @@ pub fn get_task_definition_vec<
     let encoded_plan = multi_task.plan.as_slice();
     let plan: Arc<dyn ExecutionPlan> = U::try_decode(encoded_plan).and_then(|proto| {
         proto.try_into_physical_plan(
-            function_registry.as_ref(),
+            &ctx,
             runtime.as_ref(),
             codec.physical_extension_codec(),
         )

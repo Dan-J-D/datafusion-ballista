@@ -25,6 +25,7 @@ use datafusion::arrow::datatypes::SchemaRef;
 use datafusion::common::{DataFusionError, Result};
 use datafusion::execution::FunctionRegistry;
 use datafusion::physical_plan::{ExecutionPlan, Partitioning};
+use datafusion::prelude::SessionContext;
 use datafusion_proto::logical_plan::file_formats::{
     ArrowLogicalExtensionCodec, AvroLogicalExtensionCodec, CsvLogicalExtensionCodec,
     JsonLogicalExtensionCodec, ParquetLogicalExtensionCodec,
@@ -282,13 +283,30 @@ impl PhysicalExtensionCodec for BallistaPhysicalExtensionCodec {
                 )
             })?;
 
+        let ctx = SessionContext::new();
+        for udf in registry.udfs() {
+            if let Ok(udf) = registry.udf(udf.as_str()) {
+                ctx.register_udf((*udf).clone());
+            }
+        }
+        for udaf in registry.udafs() {
+            if let Ok(udaf) = registry.udaf(udaf.as_str()) {
+                ctx.register_udaf((*udaf).clone());
+            }
+        }
+        for udwf in registry.udwfs() {
+            if let Ok(udwf) = registry.udwf(udwf.as_str()) {
+                ctx.register_udwf((*udwf).clone());
+            }
+        }
+
         match ballista_plan {
             PhysicalPlanType::ShuffleWriter(shuffle_writer) => {
                 let input = inputs[0].clone();
 
                 let shuffle_output_partitioning = parse_protobuf_hash_partitioning(
                     shuffle_writer.output_partitioning.as_ref(),
-                    registry,
+                    &ctx,
                     input.schema().as_ref(),
                     self.default_codec.as_ref(),
                 )?;
@@ -323,7 +341,7 @@ impl PhysicalExtensionCodec for BallistaPhysicalExtensionCodec {
                     .collect::<Result<Vec<_>, DataFusionError>>()?;
                 let partitioning = parse_protobuf_partitioning(
                     shuffle_reader.partitioning.as_ref(),
-                    registry,
+                    &ctx,
                     schema.as_ref(),
                     self.default_codec.as_ref(),
                 )?;
@@ -342,7 +360,7 @@ impl PhysicalExtensionCodec for BallistaPhysicalExtensionCodec {
                     Arc::new(convert_required!(unresolved_shuffle.schema)?);
                 let partitioning = parse_protobuf_partitioning(
                     unresolved_shuffle.partitioning.as_ref(),
-                    registry,
+                    &ctx,
                     schema.as_ref(),
                     self.default_codec.as_ref(),
                 )?;

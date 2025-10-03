@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#[cfg(not(feature = "rest-api"))]
+use axum::handler::HandlerWithoutStateExt;
 use ballista_core::error::BallistaError;
 use ballista_core::serde::protobuf::scheduler_grpc_server::SchedulerGrpcServer;
 use ballista_core::serde::{
@@ -25,7 +27,6 @@ use ballista_core::BALLISTA_VERSION;
 use datafusion_proto::logical_plan::AsLogicalPlan;
 use datafusion_proto::physical_plan::AsExecutionPlan;
 use datafusion_proto::protobuf::{LogicalPlanNode, PhysicalPlanNode};
-use http::StatusCode;
 use log::info;
 use std::{net::SocketAddr, sync::Arc};
 
@@ -99,8 +100,11 @@ pub async fn start_grpc_service<
     let tonic_builder =
         tonic_builder.add_service(ExternalScalerServer::new(scheduler.clone()));
 
-    let tonic = tonic_builder.into_service().into_axum_router();
-    let tonic = tonic.fallback(|| async { (StatusCode::NOT_FOUND, "404 - Not Found") });
+    let tonic = tonic_builder
+        .serve(address)
+        .await
+        .map_err(BallistaError::from)?;
+    // let tonic = tonic.fallback(|| async { (StatusCode::NOT_FOUND, "404 - Not Found") });
 
     #[cfg(feature = "rest-api")]
     let axum = get_routes(Arc::new(scheduler));
