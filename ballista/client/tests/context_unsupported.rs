@@ -147,8 +147,6 @@ mod unsupported {
         assert_batches_eq!(expected, &result);
     }
 
-    // at the moment sort merge join is not supported due to
-    // serde issues. it should be supported with DF.50
     #[rstest]
     #[case::standalone(standalone_context())]
     #[case::remote(remote_context())]
