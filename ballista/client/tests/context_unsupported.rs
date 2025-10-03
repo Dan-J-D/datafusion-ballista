@@ -153,7 +153,6 @@ mod unsupported {
     #[case::standalone(standalone_context())]
     #[case::remote(remote_context())]
     #[tokio::test]
-    #[should_panic]
     async fn should_support_sort_merge_join(
         #[future(awt)]
         #[case]
